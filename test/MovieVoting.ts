@@ -42,7 +42,7 @@ describe('MovieVoting', function () {
 
   describe('Starting a voting', function () {
     it('Should start a voting', async function () {
-      const { movieVoting, owner } = await deployMovieVotingFixture();
+      const { movieVoting } = await deployMovieVotingFixture();
       await movieVoting.createVoting(['Movie1', 'Movie2'], 3600);
       await movieVoting.startVoting(0);
 
@@ -61,7 +61,7 @@ describe('MovieVoting', function () {
 
   describe('Voting', function () {
     it('Should allow a user to vote', async function () {
-      const { movieVoting, owner, addr1 } = await deployMovieVotingFixture();
+      const { movieVoting, addr1 } = await deployMovieVotingFixture();
       await movieVoting.createVoting(['Movie1', 'Movie2'], 3600);
       await movieVoting.startVoting(0);
 
