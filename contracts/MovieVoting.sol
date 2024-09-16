@@ -10,7 +10,11 @@ contract MovieVoting is ReentrancyGuard {
         string name;
         uint voteCount;
     }
-    
+
+    constructor() {
+    votingCount = 0;
+    }
+
     struct Voting {
         address creator;
         uint endTime;
@@ -31,6 +35,7 @@ contract MovieVoting is ReentrancyGuard {
     error NotEligibleToVote(uint votingId);
     error MovieNotFound(uint votingId, string movie);
     error VotingExpired(uint votingId);
+    error MovieNameEmpty();
 
     modifier onlyCreator(uint _votingId) {
         require(msg.sender == votings[_votingId].creator, "Not the creator");
@@ -79,15 +84,21 @@ contract MovieVoting is ReentrancyGuard {
     }
 
     function vote(uint _votingId, string memory _movieName) public nonReentrant inState(_votingId, VotingState.Ongoing) {
+        require(bytes(_movieName).length > 0, "Movie name cannot be empty");
+        
         Voting storage voting = votings[_votingId];
 
-        require(!voting.hasVoted[msg.sender], "Already voted");
-        require(block.timestamp < voting.endTime, "Voting expired");
+        if (voting.hasVoted[msg.sender]) {
+            revert NotEligibleToVote(_votingId);
+        }
 
+        if (block.timestamp >= voting.endTime) {
+            revert VotingExpired(_votingId);
+        }
 
         bool found = false;
-
         Movie[] storage movies = voting.movies;
+
         for (uint i = 0; i < movies.length; i++) {
             if (keccak256(bytes(movies[i].name)) == keccak256(bytes(_movieName))) {
                 movies[i].voteCount += 1;
@@ -96,7 +107,10 @@ contract MovieVoting is ReentrancyGuard {
             }
         }
 
-        require(found, "Movie not found");
+        if (!found) {
+            revert MovieNotFound(_votingId, _movieName);
+        }
+
         voting.hasVoted[msg.sender] = true;
 
         emit VoteCast(_votingId, msg.sender, _movieName);
@@ -110,12 +124,21 @@ contract MovieVoting is ReentrancyGuard {
 
         string memory winner;
         uint maxVotes = 0;
+        uint tieCount = 0;
 
         for (uint i = 0; i < voting.movies.length; i++) {
             if (voting.movies[i].voteCount > maxVotes) {
                 maxVotes = voting.movies[i].voteCount;
                 winner = voting.movies[i].name;
+                tieCount = 1; 
+            } else if (voting.movies[i].voteCount == maxVotes) {
+                tieCount++;
             }
+        }
+
+        if (tieCount > 1) {
+            uint randomIndex = uint(keccak256(abi.encodePacked(block.timestamp, block.prevrandao))) % voting.movies.length;
+            winner = voting.movies[randomIndex].name;
         }
 
         emit VotingFinished(_votingId, winner);
